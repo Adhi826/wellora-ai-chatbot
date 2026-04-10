@@ -1,9 +1,12 @@
 fastapi
-uvicorn
+uvicorn[standard]
 groq
 python-dotenv
 pydantic
+pydantic[email]
 python-multipart
 sqlalchemy
 aiosqlite
 httpx
+aiohttp
+tenacity

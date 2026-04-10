@@ -228,7 +228,7 @@ interface Message {
 }
 interface ChatSession { id: string; title: string; date?: string; }
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const uid = () => Math.random().toString(36).substring(2, 9);
 
 export default function App() {
