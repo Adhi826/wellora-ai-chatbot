@@ -10,3 +10,8 @@ aiosqlite
 httpx
 aiohttp
 tenacity
+langchain
+faiss-cpu
+pypdf
+sentence-transformers
+openai
