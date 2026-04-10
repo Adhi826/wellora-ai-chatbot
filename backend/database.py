@@ -5,8 +5,11 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Float, Intege
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
+import os
+
 # SQLite database file
-DATABASE_URL = "sqlite+aiosqlite:///./wellora.db"
+db_path = os.getenv("SQLITE_DB_PATH", "./wellora.db")
+DATABASE_URL = f"sqlite+aiosqlite:///{db_path}"
 
 # Database Engine
 engine = create_async_engine(DATABASE_URL, echo=False)
