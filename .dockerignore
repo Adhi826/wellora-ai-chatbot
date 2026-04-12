@@ -41,6 +41,8 @@ data/
 # Logs and debug files
 *.log
 *.txt
+!backend/requirements.txt
+!requirements.txt
 backend/debug.txt
 backend/out*.log
 backend/err.log

@@ -2,8 +2,11 @@ import csv
 import os
 import re
 
-DISEASES_CSV = r"c:\Users\kesav\OneDrive\Desktop\project\datasets\archive (2)\diseases.csv"
-MEDICINES_CSV = r"c:\Users\kesav\OneDrive\Desktop\project\datasets\archive (1)\A_Z_medicines_dataset_of_India.csv"
+# Resolve dataset paths relative to the project root (repo root is two levels up from backend/)
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_BACKEND_DIR)
+DISEASES_CSV = os.path.join(_PROJECT_ROOT, "datasets", "archive (2)", "diseases.csv")
+MEDICINES_CSV = os.path.join(_PROJECT_ROOT, "datasets", "archive (1)", "A_Z_medicines_dataset_of_India.csv")
 
 # Disease → Generic Medicine Mapping (India)
 DISEASE_MEDICINE_MAP = {
