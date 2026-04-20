@@ -6,21 +6,10 @@ import base64
 # Configuration
 API_URL = "https://wellora-ai-chatbot.onrender.com"
 
-st.set_page_config(page_title="Wellora AI", layout="centered", initial_sidebar_state="collapsed", page_icon="💊")
+# ------------------ CONFIG ------------------
+st.set_page_config(page_title="Wellora", layout="centered", initial_sidebar_state="collapsed", page_icon="💊")
 
-# Custom CSS for UI
-st.markdown("""
-<style>
-button {
-    border-radius: 10px;
-}
-.stButton>button {
-    width: 100%;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Initialize session state variables
+# ------------------ SESSION INITIALIZATION ------------------
 if "page" not in st.session_state:
     st.session_state.page = "landing"
 if "logged_in" not in st.session_state:
@@ -34,36 +23,88 @@ if "messages" not in st.session_state:
 if "language" not in st.session_state:
     st.session_state.language = "English"
 
-# ================= PAGES =================
+# ------------------ CSS ------------------
+st.markdown("""
+<style>
+body {
+    background-color: #f5f7fb;
+}
 
+/* Center container */
+.main-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-top: 5vh;
+}
+
+/* Card */
+.card {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0px 5px 20px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+    margin: auto;
+}
+
+/* Title */
+.title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+/* Subtitle */
+.subtitle {
+    text-align: center;
+    color: gray;
+    margin-bottom: 20px;
+}
+
+/* Button */
+.stButton>button {
+    width: 100%;
+    border-radius: 10px;
+    height: 45px;
+    font-size: 16px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------ LANDING ------------------
 def landing_page():
-    st.title("Wellora")
-    st.write("Your AI Healthcare Assistant")
-    st.write("For educational purposes only. Not medical advice.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Get Started", type="primary"):
-            st.session_state.page = "signup"
-            st.rerun()
-    with col2:
-        if st.button("Sign In"):
-            st.session_state.page = "login"
-            st.rerun()
-    
-    st.markdown("---")
-    if st.button("Continue as Guest (No Login Required)"):
-        st.session_state.page = "dashboard"
+    st.markdown('<div class="main-container"><div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="title">Wellora</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Your AI Healthcare Assistant</div>', unsafe_allow_html=True)
+
+    if st.button("Get Started", type="primary"):
+        st.session_state.page = "signup"
         st.rerun()
 
+    if st.button("Sign In"):
+        st.session_state.page = "login"
+        st.rerun()
+
+    st.markdown('<br>', unsafe_allow_html=True)
+    if st.button("Continue as Guest"):
+        st.session_state.page = "dashboard"
+        st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+
+# ------------------ LOGIN ------------------
 def login_page():
-    st.title("Welcome Back")
-    st.write("Sign in to Wellora")
-    
+    st.markdown('<div class="main-container"><div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="title">Welcome back</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Sign in to Wellora</div>', unsafe_allow_html=True)
+
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
-    
-    if st.button("Login", type="primary"):
+
+    if st.button("Continue", type="primary"):
         if not email or not password:
             st.error("Please fill in all fields.")
         else:
@@ -78,26 +119,33 @@ def login_page():
                     st.error("Invalid email or password.")
             except Exception:
                 st.error("Error connecting to server. Make sure backend is live.")
-                
-    if st.button("Go to Signup"):
+
+    if st.button("Don't have an account? Sign up"):
         st.session_state.page = "signup"
         st.rerun()
-        
-    if st.button("⬅ Back to Home"):
+
+    if st.button("⬅ Back"):
         st.session_state.page = "landing"
         st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
+
+# ------------------ SIGNUP ------------------
 def signup_page():
-    st.title("Create Account")
-    st.write("Get started for free")
-    
+    st.markdown('<div class="main-container"><div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="title">Create account</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Get started for free</div>', unsafe_allow_html=True)
+
     name = st.text_input("Full Name")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
-    
+    confirm = st.text_input("Confirm Password", type="password")
+
     if st.button("Create Account", type="primary"):
         if not name or not email or not password:
             st.error("Please fill in all fields.")
+        elif password != confirm:
+            st.error("Passwords do not match.")
         else:
             try:
                 res = requests.post(f"{API_URL}/auth/signup", json={"email": email, "password": password})
@@ -109,18 +157,20 @@ def signup_page():
                 else:
                     st.error("Account already exists or invalid data.")
             except Exception:
-                st.error("Error connecting to server. Make sure backend is live.")
-                
-    if st.button("Go to Login"):
+                st.error("Error connecting to server.")
+
+    if st.button("Already have an account? Sign in"):
         st.session_state.page = "login"
         st.rerun()
-        
-    if st.button("⬅ Back to Home"):
+
+    if st.button("⬅ Back"):
         st.session_state.page = "landing"
         st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
+
+# ------------------ DASHBOARD ------------------
 def dashboard():
-    # Show sidebar ONLY when in dashboard
     with st.sidebar:
         if st.session_state.logged_in:
             st.write(f"Logged in as: **{st.session_state.user_email.split('@')[0]}**")
@@ -146,7 +196,7 @@ def dashboard():
                 st.session_state.page = "landing"
                 st.rerun()
 
-    st.title("Wellora AI")
+    st.title("🩺 Wellora AI")
     st.caption("How can I help you today? (Not a substitute for professional medical advice)")
 
     # Display chat history
@@ -156,14 +206,13 @@ def dashboard():
                 st.image(msg["image"], caption="Attached Image")
             st.markdown(msg["text"])
 
-    # Upload File (Placing it discreetly below history)
+    # Upload File
     uploaded_img = st.file_uploader("Attach a medical image (Optional)", type=["png", "jpg", "jpeg", "webp"])
     img_data_uri = None
     if uploaded_img is not None:
         bytes_data = uploaded_img.getvalue()
-        # Check size < 3MB
         if len(bytes_data) > 3 * 1024 * 1024:
-            st.warning("Image is too large (Max 3 MB). Please upload a smaller image.")
+            st.warning("Image is too large (Max 3 MB).")
         else:
             b64 = base64.b64encode(bytes_data).decode()
             mime_type = uploaded_img.type
@@ -176,15 +225,13 @@ def dashboard():
             st.warning("Please enter a message or attach an image.")
         else:
             ui_text = prompt if prompt.strip() else "(image attached)"
-            
-            # Add user message to UI
             st.session_state.messages.append({"role": "user", "text": prompt, "image": img_data_uri if img_data_uri else None})
+            
             with st.chat_message("user"):
                 if img_data_uri:
                     st.image(img_data_uri)
                 st.markdown(prompt)
 
-            # Call Backend API
             with st.chat_message("assistant"):
                 with st.spinner("Connecting to medical intelligence core..."):
                     payload = {
@@ -202,7 +249,6 @@ def dashboard():
                             bot_text = data.get("response", "No response received.")
                             glm = data.get("glm_analysis")
                             
-                            # Show Vision feedback if any
                             if glm and glm.get("status") == "success":
                                 st.info("🔬 Visually Analyzed by Wellora Vision Models")
                                 if glm.get("caption"):
@@ -217,13 +263,12 @@ def dashboard():
                                 err_msg = response.text
                             st.error(err_msg)
                             st.session_state.messages.append({"role": "assistant", "text": f"Error: {err_msg}"})
-                    except Exception as e:
-                        err_msg = "Failed to connect to the backend server. Make sure the API is live."
+                    except Exception:
+                        err_msg = "Failed to connect to backend server."
                         st.error(err_msg)
                         st.session_state.messages.append({"role": "assistant", "text": err_msg})
 
-# ================= ROUTING LOGIC =================
-
+# ------------------ ROUTING LOGIC ------------------
 if st.session_state.page == "landing":
     landing_page()
 elif st.session_state.page == "login":
