@@ -220,7 +220,7 @@ const downloadAsJSON = (text: string, userQuery?: string) => {
 };
 
 
-interface GlmPrediction { label: string; confidence: number; }
+
 interface GlmModelResult { model: string; predictions: { label: string; confidence: number; }[]; status: string; error?: string; }
 interface GlmAnalysis { caption?: string; summary: string; model?: string; status?: string; model_results?: GlmModelResult[]; }
 interface Message {
