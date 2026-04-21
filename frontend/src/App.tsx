@@ -311,22 +311,65 @@ export default function App() {
     if (!input.trim() && !imageFile) return;
     const txt = input;
     const img = imagePreview;
+    const file = imageFile;
     setMessages(p => [...p, { id: uid(), role: 'user', text: txt, timestamp: new Date(), image: img || undefined }]);
     setInput('');
     setImagePreview(null);
     setImageFile(null);
     setLoading(true);
+
     try {
-      const r = await axios.post(`${API}/chat`, {
-        session_id: activeSession,
-        message: txt || '(image attached)',
-        is_logged_in: loggedIn,
-        user_email: email,
-        language: selectedLanguage,
-        image: img || null
-      });
-      setMessages(p => [...p, { id: uid(), role: 'bot', text: r.data.response, timestamp: new Date(), userQuery: txt || '(image attached)', glmAnalysis: r.data.glm_analysis || undefined }]);
-      // Refresh sidebar after first message sets the title
+      // ── IMAGE PATH: call /analyze with FormData ──────────────────────────
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch(`${API}/analyze`, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          setMessages(p => [...p, { id: uid(), role: 'bot', text: `⚠️ ${data.error}`, timestamp: new Date() }]);
+        } else {
+          const analysisText = data.analysis || 'Analysis complete.';
+          setMessages(p => [...p, {
+            id: uid(),
+            role: 'bot',
+            text: analysisText,
+            timestamp: new Date(),
+            userQuery: txt || '(image attached)',
+            glmAnalysis: { summary: analysisText, caption: 'Image analyzed successfully.', status: 'success' }
+          }]);
+        }
+
+        // Also send text part to /chat if user typed something
+        if (txt.trim()) {
+          const r = await axios.post(`${API}/chat`, {
+            session_id: activeSession,
+            message: txt,
+            is_logged_in: loggedIn,
+            user_email: email,
+            language: selectedLanguage,
+            image: null
+          });
+          setMessages(p => [...p, { id: uid(), role: 'bot', text: r.data.response, timestamp: new Date(), userQuery: txt }]);
+        }
+
+      // ── TEXT ONLY PATH: call /chat as before ─────────────────────────────
+      } else {
+        const r = await axios.post(`${API}/chat`, {
+          session_id: activeSession,
+          message: txt || '(image attached)',
+          is_logged_in: loggedIn,
+          user_email: email,
+          language: selectedLanguage,
+          image: img || null
+        });
+        setMessages(p => [...p, { id: uid(), role: 'bot', text: r.data.response, timestamp: new Date(), userQuery: txt || '(image attached)', glmAnalysis: r.data.glm_analysis || undefined }]);
+      }
+
       fetchSessions();
     } catch (err: any) {
       const errorMsg = err.response?.data?.detail || 'I am having trouble connecting to my medical intelligence core. Please ensure the backend server is running and try again.';

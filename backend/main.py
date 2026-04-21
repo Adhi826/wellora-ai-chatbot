@@ -2,9 +2,10 @@ import os
 import json
 import uuid
 import asyncio
+import base64
 import logging
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, Body
+from fastapi import FastAPI, HTTPException, Depends, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict
@@ -162,6 +163,39 @@ async def root():
 
 from medical_engine import medical_engine
 from image_analysis import analyze_medical_image
+
+# ---------------------------------------------------------------------------
+# /analyze — standalone image analysis endpoint (called by frontend)
+# ---------------------------------------------------------------------------
+@app.post("/analyze")
+async def analyze(file: UploadFile = File(...)):
+    contents = await file.read()
+    print(f"[/analyze] Image received: {len(contents)} bytes")  # DEBUG
+
+    if not contents:
+        return {"error": "No image received"}
+
+    mime_type = file.content_type or "image/jpeg"
+    supported = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+    if mime_type not in supported:
+        return {"error": "Unsupported format. Use JPG or PNG."}
+
+    if len(contents) > 3 * 1024 * 1024:
+        return {"error": "Image too large. Maximum 3 MB allowed."}
+
+    # Convert to data URL for the vision model
+    b64 = base64.b64encode(contents).decode("utf-8")
+    data_url = f"data:{mime_type};base64,{b64}"
+
+    try:
+        result = await analyze_medical_image(data_url)
+        if result:
+            return {"analysis": result.get("summary", "Analysis complete."), "status": result.get("status", "success")}
+        return {"error": "Analysis returned no result."}
+    except Exception as e:
+        logger.error(f"[/analyze] Error: {e}")
+        return {"error": f"Analysis failed: {str(e)[:200]}"}
+
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatMessage, db: AsyncSession = Depends(get_db)):
