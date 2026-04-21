@@ -194,9 +194,12 @@ async def analyze(file: UploadFile = File(...)):
     base64_image = base64.b64encode(contents).decode("utf-8")
 
     try:
-        client = ZhipuAI(api_key=api_key)
+        client = ZhipuAI(
+            api_key=api_key,
+            base_url="https://open.bigmodel.cn/api/paas/v4"
+        )
         response = client.chat.completions.create(
-            model="glm-4v-plus",  # glm-4v is deprecated — use glm-4v-plus
+            model="glm-4.6v-flash",  # ✅ Correct model name
             messages=[
                 {
                     "role": "user",
