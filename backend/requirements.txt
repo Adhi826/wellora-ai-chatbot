@@ -18,3 +18,4 @@ faiss-cpu
 pypdf
 sentence-transformers
 openai
+zhipuai

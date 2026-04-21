@@ -165,10 +165,12 @@ from medical_engine import medical_engine
 from image_analysis import analyze_medical_image
 
 # ---------------------------------------------------------------------------
-# /analyze — standalone image analysis endpoint (called by frontend)
+# /analyze — standalone image analysis endpoint using ZhipuAI SDK directly
 # ---------------------------------------------------------------------------
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
+    from zhipuai import ZhipuAI
+
     contents = await file.read()
     print(f"[/analyze] Image received: {len(contents)} bytes")  # DEBUG
 
@@ -183,18 +185,53 @@ async def analyze(file: UploadFile = File(...)):
     if len(contents) > 3 * 1024 * 1024:
         return {"error": "Image too large. Maximum 3 MB allowed."}
 
-    # Convert to data URL for the vision model
-    b64 = base64.b64encode(contents).decode("utf-8")
-    data_url = f"data:{mime_type};base64,{b64}"
+    api_key = os.getenv("ZHIPUAI_API_KEY")
+    if not api_key:
+        logger.error("[/analyze] ZHIPUAI_API_KEY not set")
+        return {"error": "API key not configured on server."}
+
+    # Convert image to base64
+    base64_image = base64.b64encode(contents).decode("utf-8")
 
     try:
-        result = await analyze_medical_image(data_url)
-        if result:
-            return {"analysis": result.get("summary", "Analysis complete."), "status": result.get("status", "success")}
-        return {"error": "Analysis returned no result."}
+        client = ZhipuAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="glm-4v",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "You are a medical AI assistant. Analyze this medical image and provide:\n"
+                                "1. Image Type (X-ray / MRI / CT / ECG / Skin / Lab Report)\n"
+                                "2. Key Observations\n"
+                                "3. Possible Condition (not a diagnosis)\n"
+                                "4. Risk Level (Low / Moderate / High)\n"
+                                "5. Recommended Action\n"
+                                "6. Confidence Level\n\n"
+                                "Disclaimer: This is AI-generated for educational purposes only. "
+                                "Always consult a qualified medical professional."
+                            )
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+        result = response.choices[0].message.content
+        logger.info(f"[/analyze] GLM-4V result: {len(result)} chars")
+        return {"analysis": result, "status": "success"}
+
     except Exception as e:
-        logger.error(f"[/analyze] Error: {e}")
-        return {"error": f"Analysis failed: {str(e)[:200]}"}
+        logger.error(f"[/analyze] ZhipuAI error: {type(e).__name__}: {e}")
+        return {"error": f"Analysis failed: {str(e)[:300]}"}
 
 
 @app.post("/chat", response_model=ChatResponse)
