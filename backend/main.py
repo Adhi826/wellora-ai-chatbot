@@ -165,10 +165,72 @@ from medical_engine import medical_engine
 from image_analysis import analyze_medical_image
 
 # ---------------------------------------------------------------------------
+# Structured medical image prompt + formatter
+# ---------------------------------------------------------------------------
+STRUCTURED_IMAGE_PROMPT = """
+Analyze this medical image (X-ray, skin, ECG, MRI, CT scan, lab report).
+
+Return ONLY this exact JSON (no explanation outside it):
+
+{
+  "image_type": "",
+  "symptoms": [],
+  "possible_causes": [],
+  "severity": "",
+  "recommendations": [],
+  "when_to_seek_help": "",
+  "wellness_tips": [],
+  "confidence": "",
+  "intent": ""
+}
+
+Rules:
+- image_type: X-ray / MRI / CT / ECG / Skin / Lab Report / Unknown
+- symptoms: observed visual symptoms from the image
+- possible_causes: 2-3 possible conditions (not a definitive diagnosis, use "may indicate")
+- severity: Low / Moderate / High
+- recommendations: 2-3 practical suggestions
+- when_to_seek_help: brief guidance on urgency
+- wellness_tips: 2-3 lifestyle or care tips
+- confidence: Low / Medium / High (based on image clarity)
+- intent: diagnosis / general_query / emergency
+- If image is unclear, still give best structured medical guess
+"""
+
+def _format_analysis(data: dict) -> str:
+    symptoms  = ", ".join(data.get("symptoms", [])) or "Not identified"
+    causes    = data.get("possible_causes", [])
+    recs      = data.get("recommendations", [])
+    tips      = data.get("wellness_tips", [])
+    severity  = data.get("severity", "Not specified")
+    when_help = data.get("when_to_seek_help", "Consult a doctor if unsure.")
+    img_type  = data.get("image_type", "Unknown")
+    confidence = data.get("confidence", "Medium")
+
+    causes_str = "\n".join(f"{i+1}. {c}" for i, c in enumerate(causes)) or "Could not determine"
+    recs_str   = "\n".join(f"- {r}" for r in recs) or "- Consult a healthcare professional"
+    tips_str   = "\n".join(f"- {t}" for t in tips) or "- Maintain a healthy lifestyle"
+
+    return (
+        f"🖼 Image Type: {img_type}\n\n"
+        f"🔎 What You Shared\n"
+        f"Symptoms: {symptoms}\n\n"
+        f"🧠 Possible Causes (Ranked)\n{causes_str}\n\n"
+        f"⚠️ Severity: {severity}\n\n"
+        f"💊 Recommendations\n{recs_str}\n\n"
+        f"⏳ When to Seek Medical Help\n{when_help}\n\n"
+        f"🌿 Wellness Tips\n{tips_str}\n\n"
+        f"📊 AI Confidence: {confidence}\n\n"
+        f"⚕️ Disclaimer: This is AI-generated for educational purposes only. "
+        f"Always consult a qualified healthcare professional."
+    )
+
+# ---------------------------------------------------------------------------
 # /analyze — standalone image analysis endpoint using ZhipuAI SDK directly
 # ---------------------------------------------------------------------------
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
+    import json as _json
     from zhipuai import ZhipuAI
 
     contents = await file.read()
@@ -190,7 +252,6 @@ async def analyze(file: UploadFile = File(...)):
         logger.error("[/analyze] ZHIPUAI_API_KEY not set")
         return {"error": "API key not configured on server."}
 
-    # Convert image to base64
     base64_image = base64.b64encode(contents).decode("utf-8")
 
     try:
@@ -199,38 +260,38 @@ async def analyze(file: UploadFile = File(...)):
             base_url="https://open.bigmodel.cn/api/paas/v4"
         )
         response = client.chat.completions.create(
-            model="glm-4.6v-flash",  # ✅ Correct model name
+            model="glm-4.6v-flash",
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "You are a medical AI assistant. Analyze this medical image and provide:\n"
-                                "1. Image Type (X-ray / MRI / CT / ECG / Skin / Lab Report)\n"
-                                "2. Key Observations\n"
-                                "3. Possible Condition (not a diagnosis)\n"
-                                "4. Risk Level (Low / Moderate / High)\n"
-                                "5. Recommended Action\n"
-                                "6. Confidence Level\n\n"
-                                "Disclaimer: This is AI-generated for educational purposes only. "
-                                "Always consult a qualified medical professional."
-                            )
-                        },
+                        {"type": "text", "text": STRUCTURED_IMAGE_PROMPT},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
                         }
                     ]
                 }
             ]
         )
-        result = response.choices[0].message.content
-        logger.info(f"[/analyze] GLM-4V result: {len(result)} chars")
-        return {"analysis": result, "status": "success"}
+        raw = response.choices[0].message.content
+        logger.info(f"[/analyze] Raw response: {len(raw)} chars")
+
+        # Strip markdown fences if model wraps JSON in ```json ... ```
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+
+        try:
+            data = _json.loads(cleaned)
+            formatted = _format_analysis(data)
+            return {"analysis": formatted, "structured": data, "status": "success"}
+        except _json.JSONDecodeError:
+            logger.warning("[/analyze] JSON parse failed, returning raw response")
+            return {"analysis": raw, "structured": None, "status": "success"}
 
     except Exception as e:
         logger.error(f"[/analyze] ZhipuAI error: {type(e).__name__}: {e}")
