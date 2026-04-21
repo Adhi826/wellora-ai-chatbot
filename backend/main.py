@@ -196,7 +196,7 @@ async def analyze(file: UploadFile = File(...)):
     try:
         client = ZhipuAI(api_key=api_key)
         response = client.chat.completions.create(
-            model="glm-4v",
+            model="glm-4v-plus",  # glm-4v is deprecated — use glm-4v-plus
             messages=[
                 {
                     "role": "user",
